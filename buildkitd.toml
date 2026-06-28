@@ -1,0 +1,4 @@
+# Allows buildx to push to the plain-HTTP registry on tower.local:5000.
+[registry."tower.local:5000"]
+  http = true
+  insecure = true

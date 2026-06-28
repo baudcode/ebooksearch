@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ebooksearch</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <main>
+        <header class="page-head">
+            <h1>ebooksearch</h1>
+            <div class="stats" id="stats">
+                <span data-k="total">— books</span>
+                <span data-k="dbsize">— DB</span>
+                <span data-k="lastrun" title="">last reindex —</span>
+            </div>
+        </header>
+
+        <div class="search-wrap">
+            <input
+                id="q"
+                type="search"
+                placeholder="Search title, author, filename…"
+                autocomplete="off"
+                autofocus>
+        </div>
+
+        <section id="results-section">
+            <h2 id="results-title">Recently indexed</h2>
+            <ul id="results" class="accordion"></ul>
+            <div id="empty" class="empty hidden">No matches.</div>
+        </section>
+    </main>
+
+    <footer class="statusbar" aria-live="polite">
+        <button id="reindex" type="button">Reindex</button>
+        <span class="phase" id="phase">idle</span>
+        <div class="bar"><div class="bar-fill" id="bar-fill"></div></div>
+        <span class="summary" id="summary"></span>
+        <details id="errors-wrap" class="hidden">
+            <summary><span id="err-count">0</span> err</summary>
+            <ul id="errors"></ul>
+        </details>
+    </footer>
+
+    <script src="/app.js" type="module"></script>
+</body>
+</html>

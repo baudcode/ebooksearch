@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+.eggs/
+*.egg-info/
+*.egg
+build/
+dist/
+
+# Tooling
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# uv
+uv.lock
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*~
+
+# Project: runtime state
+*.db
+*.db-wal
+*.db-shm
+test-ebooks/*.epub
+test-ebooks/*.pdf
+test-ebooks/*.mobi
+
+# Local env / secrets
+.env
+.env.local
+
+# Docker buildx cache marker
+.buildx/
