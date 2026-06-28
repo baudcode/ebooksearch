@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Callable, Iterable, Optional
 
 from . import db as dbmod
-from .extractors import extract, is_ebook_file, iter_ebook_files
+from .extractors import extract, is_ebook_file, iter_ebook_files_with_stat
 from .models import ParsedBook
 from .progress import ProgressState
 
@@ -229,8 +229,11 @@ class IndexManager:
 
     # -- full scan ------------------------------------------------------
     def _run_full_scan(self, writer: "_Writer") -> None:
-        all_paths = list(iter_ebook_files(self.ebook_dir))
-        self.progress.set_discovered(len(all_paths))
+        # Walk the tree and read each entry's stat in a single os.scandir pass.
+        discovered: list[tuple[Path, "os.stat_result"]] = list(
+            iter_ebook_files_with_stat(self.ebook_dir)
+        )
+        self.progress.set_discovered(len(discovered))
         self._broadcast()
 
         # Load existing fingerprints for skip detection + dead-row deletion.
@@ -239,15 +242,9 @@ class IndexManager:
         seen_paths: set[str] = set()
 
         to_parse: list[Path] = []
-        for p in all_paths:
+        for p, stat in discovered:
             sp = str(p)
             seen_paths.add(sp)
-            try:
-                stat = p.stat()
-            except OSError as exc:
-                self.progress.note_error(sp, f"stat failed: {exc}")
-                self._broadcast()
-                continue
             if self.max_file_bytes and stat.st_size > self.max_file_bytes:
                 self.progress.note_error(sp, f"skipped: {stat.st_size} bytes exceeds limit of {self.max_file_bytes}")
                 continue

@@ -6,6 +6,7 @@ import json
 import logging
 import mimetypes
 import os
+import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -52,7 +53,16 @@ async def lifespan(app: FastAPI):
     manager.start()
 
     watcher = FolderWatcher(manager, cfg.ebook_dir, cfg.watch_debounce_seconds)
-    watcher.start()
+    # Watcher startup walks the tree to register inotify watches; on big
+    # libraries that can take many seconds. Run it in a background thread so
+    # the HTTP server starts accepting requests immediately. A short window
+    # where folder events aren't caught is harmless — the startup scan that
+    # follows covers everything currently on disk.
+    threading.Thread(
+        target=watcher.start,
+        name="watcher-startup",
+        daemon=True,
+    ).start()
 
     app.state.config = cfg
     app.state.manager = manager

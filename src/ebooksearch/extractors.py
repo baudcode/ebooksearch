@@ -274,12 +274,43 @@ def preview(path: Path) -> tuple[str, list[dict]]:
 
 def iter_ebook_files(root: Path):
     """Yield every ebook path under ``root`` (recursive)."""
+    yield from (p for p, _st in iter_ebook_files_with_stat(root))
+
+
+def iter_ebook_files_with_stat(root: Path):
+    """Yield ``(Path, os.stat_result)`` pairs for every ebook under ``root``.
+
+    Uses ``os.scandir`` so the stat is read in the same syscall as the directory
+    entry — about half the cost of os.walk + Path.stat() for large libraries.
+    Symlinks are followed for stat (so size/mtime reflect the target file).
+    """
     if not root.exists():
         return
-    for dirpath, dirnames, filenames in os.walk(root):
-        # skip dotted directories
-        dirnames[:] = [d for d in dirnames if not d.startswith(".")]
-        for name in filenames:
-            p = Path(dirpath) / name
-            if is_ebook_file(p):
-                yield p
+
+    stack: list[str] = [str(root)]
+    while stack:
+        dirpath = stack.pop()
+        try:
+            it = os.scandir(dirpath)
+        except OSError:
+            continue
+        with it:
+            for entry in it:
+                name = entry.name
+                if name.startswith("."):
+                    continue
+                try:
+                    is_dir = entry.is_dir(follow_symlinks=False)
+                except OSError:
+                    is_dir = False
+                if is_dir:
+                    stack.append(entry.path)
+                    continue
+                p = Path(entry.path)
+                if not is_ebook_file(p):
+                    continue
+                try:
+                    st = entry.stat()
+                except OSError:
+                    continue
+                yield p, st

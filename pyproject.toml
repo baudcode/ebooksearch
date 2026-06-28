@@ -1,6 +1,6 @@
 [project]
 name = "ebooksearch"
-version = "0.2.2"
+version = "0.2.3"
 description = "Local ebook search server with FTS5 and live indexing"
 requires-python = ">=3.12"
 dependencies = [
