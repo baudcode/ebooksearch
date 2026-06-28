@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      force:
+        description: "Re-push even if the version tag already exists on ghcr"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -32,6 +37,18 @@ jobs:
           v=$(awk -F'"' '/^version *= */ {print $2; exit}' pyproject.toml)
           echo "version=$v" >> "$GITHUB_OUTPUT"
           echo "Building version: $v"
+
+      # Refuse to silently overwrite an existing release. If you really need
+      # to overwrite, trigger the workflow manually with `force: true`.
+      - name: Ensure version tag does not already exist
+        if: ${{ !inputs.force }}
+        run: |
+          ref="ghcr.io/${{ github.repository_owner }}/ebooksearch:v${{ steps.version.outputs.version }}"
+          if docker manifest inspect "$ref" >/dev/null 2>&1; then
+            echo "::error file=pyproject.toml::Image tag $ref already exists. Bump 'version' in pyproject.toml, or re-run the workflow manually with force=true."
+            exit 1
+          fi
+          echo "Tag v${{ steps.version.outputs.version }} is new — proceeding."
 
       # Tags produced on every push to main:
       #   :X.Y.Z, :vX.Y.Z   ← from pyproject.toml
