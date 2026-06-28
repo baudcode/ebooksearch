@@ -54,7 +54,8 @@ docker run -d \
   -v /path/to/your/library:/data/books \
   -v /path/to/persistent-state:/data \
   --memory=1g --memory-swap=1g \
-  -e MAX_FILE_BYTES=5242880 \
+  -e MAX_FILE_BYTES=52428800 \
+  -e MAX_TEXT_BYTES=5242880 \
   ghcr.io/baudcode/ebooksearch:latest
 ```
 
@@ -100,7 +101,8 @@ All config is via environment variables:
 | `INDEX_WORKERS` | `min(8, cpu_count)` | Parse-pool size. |
 | `WATCH_DEBOUNCE_SECONDS` | `2.5` | Debounce window for folder events. |
 | `WRITE_BATCH` | `100` | Rows per write transaction. |
-| `MAX_FILE_BYTES` | `5242880` (5 MiB) | Files larger than this are skipped. |
+| `MAX_FILE_BYTES` | `52428800` (50 MiB) | Raw open cap. Files larger than this never reach the parse pool — protects RAM under N parallel workers. |
+| `MAX_TEXT_BYTES` | `5242880` (5 MiB) | Extractable-text cap. EPUBs whose HTML/XHTML body exceeds this are skipped (measured from the zip directory without decompressing). |
 | `LOG_LEVEL` | `INFO` | `DEBUG` for verbose troubleshooting. |
 
 ## HTTP API

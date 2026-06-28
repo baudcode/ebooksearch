@@ -27,7 +27,8 @@ def _float(name: str, default: float) -> float:
     return float(raw)
 
 
-DEFAULT_MAX_FILE_BYTES = 5 * 1024 * 1024  # 5 MiB
+DEFAULT_MAX_FILE_BYTES = 50 * 1024 * 1024  # 50 MiB — raw open cap (RAM guard)
+DEFAULT_MAX_TEXT_BYTES = 5 * 1024 * 1024   # 5 MiB — extractable-text cap
 
 
 @dataclass(frozen=True)
@@ -39,6 +40,7 @@ class Config:
     watch_debounce_seconds: float
     write_batch: int
     max_file_bytes: int
+    max_text_bytes: int
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -53,4 +55,5 @@ class Config:
             watch_debounce_seconds=_float("WATCH_DEBOUNCE_SECONDS", 2.5),
             write_batch=_int("WRITE_BATCH", 100),
             max_file_bytes=_int("MAX_FILE_BYTES", DEFAULT_MAX_FILE_BYTES),
+            max_text_bytes=_int("MAX_TEXT_BYTES", DEFAULT_MAX_TEXT_BYTES),
         )

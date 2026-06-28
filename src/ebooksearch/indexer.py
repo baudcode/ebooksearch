@@ -56,13 +56,21 @@ class IndexManager:
         ebook_dir: Path,
         workers: int,
         write_batch: int,
-        max_file_bytes: int = 5 * 1024 * 1024,
+        max_file_bytes: int = 50 * 1024 * 1024,
+        max_text_bytes: int = 5 * 1024 * 1024,
     ) -> None:
         self.db_path = db_path
         self.ebook_dir = ebook_dir
         self.workers = max(1, workers)
         self.write_batch = max(1, write_batch)
+        # Two-tier cap. ``max_file_bytes`` is the raw open limit — files above
+        # this never reach the parse pool, so we don't hold tens of MB of
+        # compressed-then-expanded image data in N worker threads at once.
+        # ``max_text_bytes`` then bounds the *extractable text* inside otherwise
+        # acceptable files, peeked from the zip central directory without
+        # decompressing. See extractors._epub_text_size.
         self.max_file_bytes = max(0, max_file_bytes)
+        self.max_text_bytes = max(0, max_text_bytes)
 
         self.progress = ProgressState()
         self._listeners: list[Callable[[dict], None]] = []
@@ -327,7 +335,10 @@ class IndexManager:
         if not paths:
             return
         with ThreadPoolExecutor(max_workers=self.workers, thread_name_prefix="parse") as pool:
-            futures = {pool.submit(extract, p, self.ebook_dir): p for p in paths}
+            futures = {
+                pool.submit(extract, p, self.ebook_dir, self.max_text_bytes): p
+                for p in paths
+            }
             last_emit = 0.0
             for fut in as_completed(futures):
                 path = futures[fut]

@@ -234,6 +234,38 @@ def test_oversize_file_skipped(ebook_env):
         mgr.stop()
 
 
+def test_oversize_text_skipped(ebook_env):
+    """Files whose extractable text exceeds max_text_bytes are skipped, even
+    if the raw file size passes the open cap. The peek must read only the zip
+    central directory — no decompression — so it's safe under parallelism."""
+    ebook_dir = ebook_env["ebook_dir"]
+    db_path = ebook_env["db_path"]
+
+    make_epub(ebook_dir / "small.epub", title="Small Book")
+    # Body of 200 KB of repeated text → an OEBPS/ch1.xhtml entry well over the
+    # 50 KB text cap we'll set on the manager, while keeping the raw zip
+    # comfortably under the 1 MB open cap.
+    make_epub(ebook_dir / "wordy.epub", title="Wordy Book", body="word " * 40000)
+
+    mgr = IndexManager(
+        db_path=db_path, ebook_dir=ebook_dir, workers=2, write_batch=10,
+        max_file_bytes=1_000_000,
+        max_text_bytes=50_000,
+    )
+    mgr.start()
+    try:
+        mgr.request_full_scan("startup")
+        _wait_idle(mgr)
+
+        names = {r["filename"] for r in recent_books(db_path, 10)}
+        assert names == {"small.epub"}
+        snap = mgr.progress.snapshot()
+        text_errors = [e for e in snap["errors"] if "text limit" in e["message"]]
+        assert any("wordy.epub" in e["path"] for e in text_errors), snap["errors"]
+    finally:
+        mgr.stop()
+
+
 def test_full_error_list_persisted_and_queryable(ebook_env, monkeypatch):
     """All errors (incl. those past MAX_ERRORS) must be persisted per-run
     and retrievable via search.run_errors() with paging."""

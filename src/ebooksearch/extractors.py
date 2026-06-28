@@ -10,6 +10,7 @@ import hashlib
 import logging
 import os
 import re
+import zipfile
 from pathlib import Path
 from typing import Callable, Optional
 
@@ -19,6 +20,17 @@ logger = logging.getLogger(__name__)
 
 EBOOK_EXTENSIONS = {".epub", ".pdf"}
 IGNORED_SUFFIXES = (".part", ".crdownload", ".tmp")
+
+# Entries inside an EPUB whose uncompressed size we count toward the text cap.
+_EPUB_TEXT_EXTENSIONS = (".html", ".xhtml", ".htm")
+
+
+class TextTooLargeError(Exception):
+    """Raised by extractors when the file's extractable text exceeds the cap.
+
+    Caught by the indexer's parse-pool error handler and recorded as a skip
+    with a clear message — same surface as the raw-size limit.
+    """
 
 
 def is_ebook_file(path: Path) -> bool:
@@ -69,7 +81,34 @@ def _coerce_str(value) -> Optional[str]:
     return s or None
 
 
-def _extract_epub(path: Path, root: Path) -> ParsedBook:
+def _epub_text_size(path: Path) -> int:
+    """Sum the uncompressed size of an EPUB's text-bearing entries.
+
+    Reads only the zip central directory (no decompression), so memory cost is
+    proportional to the number of entries, not the archive size. Safe to call
+    from many parse-pool threads in parallel.
+
+    Returns 0 for unreadable archives so the downstream extractor can surface
+    the real parse error.
+    """
+    try:
+        with zipfile.ZipFile(path) as zf:
+            return sum(
+                zi.file_size
+                for zi in zf.infolist()
+                if zi.filename.lower().endswith(_EPUB_TEXT_EXTENSIONS)
+            )
+    except (zipfile.BadZipFile, OSError):
+        return 0
+
+
+def _extract_epub(path: Path, root: Path, max_text_bytes: int = 0) -> ParsedBook:
+    if max_text_bytes:
+        text_size = _epub_text_size(path)
+        if text_size > max_text_bytes:
+            raise TextTooLargeError(
+                f"skipped: extractable text {text_size} bytes exceeds text limit of {max_text_bytes}"
+            )
     book = _base_parsed(path, root)
     try:
         from ebooklib import epub
@@ -100,7 +139,10 @@ def _extract_epub(path: Path, root: Path) -> ParsedBook:
     return book
 
 
-def _extract_pdf(path: Path, root: Path) -> ParsedBook:
+def _extract_pdf(path: Path, root: Path, max_text_bytes: int = 0) -> ParsedBook:
+    # PDFs have no cheap pre-parse way to measure extractable text; the raw
+    # file size cap is the only guard. Argument accepted for a uniform signature.
+    del max_text_bytes
     book = _base_parsed(path, root)
     try:
         from pypdf import PdfReader
@@ -149,18 +191,23 @@ def _extract_pdf(path: Path, root: Path) -> ParsedBook:
     return book
 
 
-_REGISTRY: dict[str, Callable[[Path, Path], ParsedBook]] = {
+_REGISTRY: dict[str, Callable[..., ParsedBook]] = {
     ".epub": _extract_epub,
     ".pdf": _extract_pdf,
 }
 
 
-def extract(path: Path, root: Path) -> ParsedBook:
-    """Dispatch to the registered extractor for ``path.suffix``."""
+def extract(path: Path, root: Path, max_text_bytes: int = 0) -> ParsedBook:
+    """Dispatch to the registered extractor for ``path.suffix``.
+
+    ``max_text_bytes`` (0 = unlimited) caps how much extractable text a file
+    may contain. Extractors that can cheaply measure this pre-parse raise
+    :class:`TextTooLargeError` when the cap is exceeded.
+    """
     extractor = _REGISTRY.get(path.suffix.lower())
     if extractor is None:
         return _base_parsed(path, root)
-    return extractor(path, root)
+    return extractor(path, root, max_text_bytes=max_text_bytes)
 
 
 # ---------------------------------------------------------------------------

@@ -49,6 +49,7 @@ async def lifespan(app: FastAPI):
         workers=cfg.index_workers,
         write_batch=cfg.write_batch,
         max_file_bytes=cfg.max_file_bytes,
+        max_text_bytes=cfg.max_text_bytes,
     )
     manager.start()
 

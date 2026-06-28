@@ -83,10 +83,18 @@ src/ebooksearch/
    `index_runs` row so the UI updates "last reindex" without polling. Don't
    convert to WebSockets without a good reason.
 
-9. **File size limit at scan time** (`MAX_FILE_BYTES`, default 5 MiB). Oversize
-   files never reach the parse pool — `pypdf`/`ebooklib` can blow memory on
-   multi-GB inputs. They show up in the error list with a clear "exceeds
-   limit" message.
+9. **Two-tier size limits.**
+   - **`MAX_FILE_BYTES`** (default **50 MiB**) is the raw open cap, checked
+     at scan time. Anything larger never reaches the parse pool — `pypdf` /
+     `ebooklib` load whole files into RAM, and with N parse-pool workers a
+     single huge book can balloon to N× its uncompressed size.
+   - **`MAX_TEXT_BYTES`** (default 5 MiB) caps the *extractable text* inside
+     a file. For EPUBs this is measured by peeking the zip central directory
+     (no decompression) and summing `.html`/`.xhtml`/`.htm` uncompressed
+     sizes — safe under parallelism, negligible memory cost. PDFs have no
+     cheap pre-parse measurement and are only bounded by `MAX_FILE_BYTES`.
+   - Files that fail either cap are recorded in the error list with a clear
+     "exceeds limit" / "exceeds text limit" message and aren't indexed.
 
 10. **Targeted upserts run before deletes** (`_run_targeted`). A rename
     pairs a created+deleted event; if delete fires first, move detection
@@ -102,7 +110,8 @@ src/ebooksearch/
 | `INDEX_WORKERS` | `min(8, cpu_count)` | Parse-pool size. |
 | `WATCH_DEBOUNCE_SECONDS` | `2.5` | Debounce window for folder events. |
 | `WRITE_BATCH` | `100` | Rows per write transaction. |
-| `MAX_FILE_BYTES` | `5242880` | Skip files larger than this (bytes). |
+| `MAX_FILE_BYTES` | `52428800` | Raw open cap (50 MiB). Files larger never reach the parse pool. |
+| `MAX_TEXT_BYTES` | `5242880` | Extractable-text cap (5 MiB). EPUBs whose HTML/XHTML body exceeds this are skipped. |
 | `LOG_LEVEL` | `INFO` | DEBUG for verbose troubleshooting. |
 
 ## Common commands
@@ -193,7 +202,7 @@ When adding indexer behavior:
   `unicode61` splits on punctuation. Lowercase comparison is automatic.
 - **Container dies randomly.** Check `docker inspect <name> --format
   '{{.State.OOMKilled}}'`. If true, raise memory or lower `INDEX_WORKERS` /
-  `MAX_FILE_BYTES`.
+  `MAX_FILE_BYTES` / `MAX_TEXT_BYTES`.
 
 ## Things deliberately not built
 
