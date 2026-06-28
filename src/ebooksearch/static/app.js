@@ -22,7 +22,32 @@ const els = {
     errorsModalList: $("#errors-modal-list"),
     errorsModalLoadMore: $("#errors-modal-loadmore"),
     errorsModalLoadMoreWrap: $("#errors-modal-loadmore-wrap"),
+    themeToggle: $("#theme-toggle"),
 };
+
+// ---------------------------------------------------------------------------
+// Theme toggle (light default, dark opt-in; persisted in localStorage)
+// ---------------------------------------------------------------------------
+function applyTheme(theme) {
+    const dark = theme === "dark";
+    if (dark) document.documentElement.setAttribute("data-theme", "dark");
+    else document.documentElement.removeAttribute("data-theme");
+    els.themeToggle.textContent = dark ? "☀️" : "🌙";
+    els.themeToggle.title = dark ? "Switch to light mode" : "Switch to dark mode";
+}
+
+function currentTheme() {
+    try { return localStorage.getItem("theme") === "dark" ? "dark" : "light"; }
+    catch (e) { return "light"; }
+}
+
+applyTheme(currentTheme());
+
+els.themeToggle.addEventListener("click", () => {
+    const next = currentTheme() === "dark" ? "light" : "dark";
+    try { localStorage.setItem("theme", next); } catch (e) { /* ignore */ }
+    applyTheme(next);
+});
 
 const fmtBytes = (n) => {
     if (n == null) return "—";

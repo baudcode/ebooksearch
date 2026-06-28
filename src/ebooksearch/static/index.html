@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>ebooksearch</title>
     <link rel="stylesheet" href="/styles.css">
+    <script>
+        // Apply the saved theme before first paint to avoid a flash.
+        (function () {
+            try {
+                if (localStorage.getItem("theme") === "dark") {
+                    document.documentElement.setAttribute("data-theme", "dark");
+                }
+            } catch (e) { /* localStorage unavailable */ }
+        })();
+    </script>
 </head>
 <body>
     <main>
@@ -15,6 +25,7 @@
                 <span data-k="dbsize">— DB</span>
                 <span data-k="lastrun" title="">last reindex —</span>
             </div>
+            <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">🌙</button>
         </header>
 
         <div class="search-wrap">

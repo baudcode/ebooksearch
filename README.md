@@ -18,6 +18,12 @@ Designed to run as a single container on a NAS, pointed at a mounted library.
   cached by content hash.
 - **Live indexing UI** — progress bar, throughput, ETA, current file, error
   list, all streamed via Server-Sent Events.
+- **Light/dark theme** — light by default with a toggle in the header; the
+  choice is remembered across visits.
+- **E-reader support** — a no-JavaScript, server-rendered search page at
+  `/lite` works on limited browsers like the Kindle Paperwhite's. Kindle
+  browsers hitting `/` are redirected there automatically; any browser can
+  use it directly.
 - **Auto-reindex on folder changes** — debounced watchdog routes targeted
   updates through the same single-flight pipeline as manual reindex.
 - **Rename detection** — moves preserve the database `id` rather than
@@ -118,6 +124,7 @@ All config is via environment variables:
 | `GET` | `/api/index/runs?limit=` | Recent `index_runs` rows. |
 | `GET` | `/api/index/stream` | Server-Sent Events: live progress. |
 | `POST` | `/api/reindex` | `202`; full scan kicked off in the background. |
+| `GET` | `/lite?q=` | No-JS, server-rendered search page (Kindle-friendly). |
 
 ## Architecture in one paragraph
 

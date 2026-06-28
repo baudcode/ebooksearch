@@ -19,9 +19,10 @@ logging.basicConfig(
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
+from . import lite as litemod
 from . import search as searchmod
 from .config import Config
 from .extractors import preview
@@ -81,6 +82,17 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="ebooksearch", lifespan=lifespan)
+
+
+# Old e-reader browsers (e.g. the Kindle Paperwhite) can't run the JS SPA at
+# all. Send them to the server-rendered /lite page automatically. UA sniffing
+# is brittle by nature, but "kindle" is a stable substring across Kindle
+# browser builds and the worst case is a redirect a capable browser could undo.
+@app.middleware("http")
+async def kindle_to_lite(request: Request, call_next):
+    if request.url.path == "/" and "kindle" in request.headers.get("user-agent", "").lower():
+        return RedirectResponse(url="/lite", status_code=302)
+    return await call_next(request)
 
 
 # ---------------------------------------------------------------------------
@@ -257,6 +269,22 @@ def _sse(snapshot: dict) -> str:
     event = "terminal" if snapshot.get("_terminal") else "progress"
     payload = {k: v for k, v in snapshot.items() if not k.startswith("_")}
     return f"event: {event}\ndata: {json.dumps(payload)}\n\n"
+
+
+# ---------------------------------------------------------------------------
+# Lite page — server-rendered, no-JS search for limited browsers
+# ---------------------------------------------------------------------------
+
+
+@app.get("/lite", response_class=HTMLResponse)
+async def lite(request: Request, q: str = "", limit: int = Query(50, ge=1, le=200)):
+    cfg: Config = request.app.state.config
+    is_search = bool(q.strip())
+    if is_search:
+        rows = await run_in_threadpool(searchmod.search_books, cfg.db_path, q, limit, 0)
+    else:
+        rows = await run_in_threadpool(searchmod.recent_books, cfg.db_path, 30)
+    return HTMLResponse(litemod.render_lite_page(q, rows, is_search))
 
 
 # ---------------------------------------------------------------------------

@@ -1,4 +1,24 @@
+/* Light is the default theme. Dark is opt-in via [data-theme="dark"]. */
 :root {
+    --bg: #f6f8fa;
+    --panel: #ffffff;
+    --panel-2: #f0f3f6;
+    --border: #d0d7de;
+    --text: #1f2328;
+    --muted: #656d76;
+    --accent: #0969da;
+    --accent-2: #0550ae;
+    --good: #1a7f37;
+    --warn: #9a6700;
+    --err: #cf222e;
+    --badge-bg: #eaeef2;
+    --code-bg: #f0f3f6;
+    --on-accent: #ffffff;
+    --backdrop: rgba(27, 31, 36, 0.45);
+    --shadow: rgba(31, 35, 40, 0.18);
+}
+
+[data-theme="dark"] {
     --bg: #0e1116;
     --panel: #161b22;
     --panel-2: #1c232c;
@@ -10,6 +30,11 @@
     --good: #3fb950;
     --warn: #d29922;
     --err: #f85149;
+    --badge-bg: #21262d;
+    --code-bg: #11161d;
+    --on-accent: #0e1116;
+    --backdrop: rgba(0, 0, 0, 0.65);
+    --shadow: rgba(0, 0, 0, 0.6);
 }
 
 * { box-sizing: border-box; }
@@ -58,6 +83,21 @@ main {
     font-size: 12px;
     flex-wrap: wrap;
 }
+
+.theme-toggle {
+    margin-left: auto;
+    align-self: center;
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.theme-toggle:hover { border-color: var(--accent); color: var(--accent-2); }
 
 /* ---------- Search box ---------- */
 
@@ -135,7 +175,7 @@ main {
 }
 
 .row-head .badge {
-    background: #21262d;
+    background: var(--badge-bg);
     color: var(--muted);
     padding: 1px 6px;
     border-radius: 4px;
@@ -177,8 +217,8 @@ main {
 .row-body dd { margin: 0; }
 
 .snippet {
-    color: #c9d1d9;
-    background: #11161d;
+    color: var(--text);
+    background: var(--code-bg);
     border-radius: 6px;
     padding: 10px 12px;
     margin: 0 0 12px;
@@ -201,7 +241,7 @@ main {
     display: inline-block;
     padding: 6px 12px;
     background: var(--accent);
-    color: #0e1116;
+    color: var(--on-accent);
     text-decoration: none;
     border-radius: 6px;
     font-weight: 600;
@@ -261,7 +301,7 @@ main {
 .statusbar .bar {
     flex: 1;
     height: 6px;
-    background: #11161d;
+    background: var(--code-bg);
     border-radius: 3px;
     overflow: hidden;
     min-width: 80px;
@@ -335,7 +375,7 @@ main {
 .modal-backdrop {
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.65);
+    background: var(--backdrop);
     cursor: pointer;
 }
 
@@ -349,7 +389,7 @@ main {
     max-height: 80vh;
     display: flex;
     flex-direction: column;
-    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+    box-shadow: 0 12px 48px var(--shadow);
 }
 
 .modal-head {
@@ -398,7 +438,7 @@ main {
 
 .errors-list li {
     padding: 4px 0;
-    border-bottom: 1px solid #1a2028;
+    border-bottom: 1px solid var(--border);
     word-break: break-all;
 }
 .errors-list li:last-child { border-bottom: none; }
@@ -441,6 +481,8 @@ main {
     .page-head h1 { font-size: 20px; }
 
     .stats { gap: 12px; font-size: 11px; }
+
+    .theme-toggle { margin-left: 0; align-self: flex-start; }
 
     #q {
         font-size: 16px;  /* prevent iOS zoom-on-focus */

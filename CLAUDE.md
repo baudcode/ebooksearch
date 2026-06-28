@@ -36,6 +36,7 @@ src/ebooksearch/
   indexer.py         — IndexManager: parse pool + writer thread + dispatcher
   watcher.py         — debounced watchdog → IndexManager
   search.py          — FTS query builder + read-only query helpers
+  lite.py            — server-rendered no-JS search page (Kindle-friendly)
   main.py            — FastAPI app, routes, SSE bridge, lifespan
   static/            — index.html, styles.css, app.js
 ```
@@ -99,6 +100,23 @@ src/ebooksearch/
 10. **Targeted upserts run before deletes** (`_run_targeted`). A rename
     pairs a created+deleted event; if delete fires first, move detection
     can't find the old row.
+
+11. **No-JS fallback for old browsers** (`lite.py`, `/lite`). The SPA uses ES
+    modules + `fetch` + `EventSource`, none of which run on old e-reader
+    WebKit (e.g. the Kindle Paperwhite). `/lite` is a server-rendered GET-form
+    search page — plain HTML, no JS, no SSE, inline e-ink-tuned CSS — reusing
+    `search_books`/`recent_books` and linking to `/api/download/{id}`. A
+    User-Agent middleware in `main.py` redirects `GET /` to `/lite` when the
+    UA contains `kindle` (sniffing is brittle by design; `/lite` also works
+    directly for any browser). If you add JS-only features, keep `/lite`
+    functional without them.
+
+12. **Theme: light by default, dark opt-in.** `styles.css` defines the light
+    palette on `:root` and the dark palette under `[data-theme="dark"]`; all
+    colors are CSS variables (no hardcoded hex outside those two blocks — keep
+    it that way). A toggle in the header flips `data-theme` and persists the
+    choice in `localStorage` (`theme`). An inline `<head>` script applies the
+    saved theme before first paint to avoid a flash.
 
 ## Configuration (env vars)
 
