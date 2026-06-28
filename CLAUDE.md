@@ -137,15 +137,21 @@ a release; `make build` will tag accordingly.
 CI/CD lives in `.github/workflows/`:
 
 - `ci.yml` — runs `pytest` on every push to `main` and on every PR.
-- `docker.yml` — on every push to `main` and on every `v*` tag, builds a
-  multi-arch image and pushes to `ghcr.io/baudcode/ebooksearch`. Uses
+- `docker.yml` — on every push to `main`, builds a multi-arch image and
+  pushes to `ghcr.io/baudcode/ebooksearch`. The image is tagged with
+  `:X.Y.Z`, `:vX.Y.Z`, `:latest`, `:main`, and `:sha-<short>`. Uses
   `GITHUB_TOKEN` for auth (no PAT needed). Cached via the GitHub Actions
   cache backend.
 
+**Versioning is single-sourced from `pyproject.toml`.** Both the Makefile and
+the docker workflow read it. The `ebooksearch.__version__` Python attribute
+is resolved at import time from package metadata via `importlib.metadata`, so
+there's no duplicate string to maintain.
+
 To cut a release:
-1. Bump `version` in `pyproject.toml` and `src/ebooksearch/__init__.py`.
-2. Commit, tag `vX.Y.Z`, push tag → workflow tags the image `:X.Y.Z`,
-   `:vX.Y.Z`, and `:latest`.
+1. Bump `version = "X.Y.Z"` in `pyproject.toml`.
+2. Commit, push to `main`. That's it — no git tag required. The workflow
+   tags the image accordingly.
 
 ## Code style / conventions
 

@@ -3,7 +3,6 @@ name: Build and push Docker image
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   workflow_dispatch:
 
 permissions:
@@ -27,18 +26,27 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Compute tags + OCI labels from the ref:
-      #   push to main          → :latest, :main, :sha-<short>
-      #   push tag vX.Y.Z       → :X.Y.Z, :vX.Y.Z, :latest, :sha-<short>
+      # Single source of truth for the version: pyproject.toml.
+      - id: version
+        run: |
+          v=$(awk -F'"' '/^version *= */ {print $2; exit}' pyproject.toml)
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "Building version: $v"
+
+      # Tags produced on every push to main:
+      #   :X.Y.Z, :vX.Y.Z   ← from pyproject.toml
+      #   :latest
+      #   :main
+      #   :sha-<short>      ← always unique, useful for traceability
       - id: meta
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ github.repository_owner }}/ebooksearch
           tags: |
+            type=raw,value=${{ steps.version.outputs.version }}
+            type=raw,value=v${{ steps.version.outputs.version }}
+            type=raw,value=latest
             type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=semver,pattern=v{{version}}
-            type=raw,value=latest,enable={{is_default_branch}}
             type=sha,prefix=sha-
 
       - uses: docker/build-push-action@v6
