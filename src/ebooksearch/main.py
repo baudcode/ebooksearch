@@ -119,6 +119,17 @@ async def api_runs(request: Request, limit: int = Query(10, ge=1, le=100)):
     return {"runs": rows}
 
 
+@app.get("/api/index/runs/{run_id}/errors")
+async def api_run_errors(
+    request: Request,
+    run_id: int,
+    limit: int = Query(500, ge=1, le=5000),
+    offset: int = Query(0, ge=0),
+):
+    cfg: Config = request.app.state.config
+    return await run_in_threadpool(searchmod.run_errors, cfg.db_path, run_id, limit, offset)
+
+
 @app.get("/api/index/status")
 async def api_index_status(request: Request):
     manager: IndexManager = request.app.state.manager

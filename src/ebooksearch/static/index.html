@@ -41,8 +41,24 @@
         <details id="errors-wrap" class="hidden">
             <summary><span id="err-count">0</span> err</summary>
             <ul id="errors"></ul>
+            <button type="button" id="view-all-errors" class="link-button">View full list</button>
         </details>
     </footer>
+
+    <div id="errors-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="errors-modal-title">
+        <div class="modal-backdrop" data-close></div>
+        <div class="modal-panel">
+            <header class="modal-head">
+                <h2 id="errors-modal-title">All errors for last run</h2>
+                <button type="button" class="modal-close" data-close aria-label="Close">×</button>
+            </header>
+            <div class="modal-meta" id="errors-modal-meta">—</div>
+            <ul id="errors-modal-list" class="errors-list"></ul>
+            <div id="errors-modal-loadmore-wrap" class="hidden">
+                <button type="button" id="errors-modal-loadmore" class="modal-loadmore">Load more</button>
+            </div>
+        </div>
+    </div>
 
     <script src="/app.js" type="module"></script>
 </body>

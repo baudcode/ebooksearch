@@ -21,6 +21,11 @@ class ProgressState:
     removed: int = 0
     skipped: int = 0
     errors: list[dict] = field(default_factory=list)
+    # Full uncapped error list — persisted to the DB at run end so the UI
+    # can fetch it on demand. Not included in the SSE snapshot (would blow
+    # the payload up on big libraries).
+    all_errors: list[dict] = field(default_factory=list)
+    dropped_errors_count: int = 0  # errors beyond MAX_ERRORS that didn't fit in the visible list
     current_file: Optional[str] = None
     started_at: Optional[str] = None
     files_per_sec: float = 0.0
@@ -44,6 +49,7 @@ class ProgressState:
                 "removed": self.removed,
                 "skipped": self.skipped,
                 "errors": list(self.errors),
+                "dropped_errors_count": self.dropped_errors_count,
                 "current_file": self.current_file,
                 "started_at": self.started_at,
                 "files_per_sec": round(self.files_per_sec, 2),
@@ -62,6 +68,8 @@ class ProgressState:
             self.removed = 0
             self.skipped = 0
             self.errors = []
+            self.all_errors = []
+            self.dropped_errors_count = 0
             self.current_file = None
             self.started_at = started_at
             self.files_per_sec = 0.0
@@ -101,10 +109,21 @@ class ProgressState:
 
     def note_error(self, path: str, message: str) -> None:
         with self._lock:
+            entry = {"path": path, "message": message}
+            self.all_errors.append(entry)
             if len(self.errors) < self.MAX_ERRORS:
-                self.errors.append({"path": path, "message": message})
+                self.errors.append(entry)
+            else:
+                self.dropped_errors_count += 1
             self.processed += 1
             self.current_file = path
+
+    def drain_all_errors(self) -> list[dict]:
+        """Take ownership of the full error list (called once at run end)."""
+        with self._lock:
+            out = self.all_errors
+            self.all_errors = []
+            return out
 
     def finalize(self, status: str, last_run: dict) -> None:
         with self._lock:

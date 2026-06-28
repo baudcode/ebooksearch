@@ -205,6 +205,7 @@ class IndexManager:
         ended_at = _utcnow_iso()
         duration = round(time.monotonic() - t0, 3)
         snap = self.progress.snapshot()
+        total_errors = len(snap["errors"]) + snap["dropped_errors_count"]
         last_run = {
             "id": run_id,
             "trigger": trigger,
@@ -216,14 +217,19 @@ class IndexManager:
             "updated": snap["updated"],
             "removed": snap["removed"],
             "skipped": snap["skipped"],
-            "error_count": len(snap["errors"]),
+            "error_count": total_errors,
+            "dropped_errors_count": snap["dropped_errors_count"],
         }
-        # Finalize the index_runs row in its own short-lived writer.
-        _finalize_run(self.db_path, run_id, status, ended_at, duration, snap, len(snap["errors"]))
+        # Finalize the index_runs row + persist the full per-file error list
+        # in a single short-lived writer connection.
+        all_errs = self.progress.drain_all_errors()
+        _finalize_run(self.db_path, run_id, status, ended_at, duration, snap, total_errors, all_errs)
         self.progress.finalize(status=status, last_run=last_run)
+        dropped_note = f" (+{snap['dropped_errors_count']} dropped)" if snap["dropped_errors_count"] else ""
         logger.info(
-            "run done: trigger=%s status=%s duration=%.2fs added=%d updated=%d removed=%d skipped=%d errors=%d",
-            trigger, status, duration, snap["added"], snap["updated"], snap["removed"], snap["skipped"], len(snap["errors"]),
+            "run done: trigger=%s status=%s duration=%.2fs added=%d updated=%d removed=%d skipped=%d errors=%d%s",
+            trigger, status, duration, snap["added"], snap["updated"], snap["removed"], snap["skipped"],
+            total_errors, dropped_note,
         )
         self._broadcast(terminal=True)
 
@@ -614,6 +620,7 @@ def _finalize_run(
     duration: float,
     snap: dict,
     error_count: int,
+    all_errors: list[dict],
 ) -> None:
     conn = dbmod.connect(db_path)
     try:
@@ -625,16 +632,17 @@ def _finalize_run(
              WHERE id = ?
             """,
             (
-                status,
-                ended_at,
-                duration,
-                snap["added"],
-                snap["updated"],
-                snap["removed"],
-                snap["skipped"],
-                error_count,
-                run_id,
+                status, ended_at, duration,
+                snap["added"], snap["updated"], snap["removed"], snap["skipped"],
+                error_count, run_id,
             ),
         )
+        if all_errors:
+            conn.execute("BEGIN")
+            conn.executemany(
+                "INSERT INTO index_run_errors(run_id, path, message) VALUES (?, ?, ?)",
+                [(run_id, e["path"], e["message"]) for e in all_errors],
+            )
+            conn.execute("COMMIT")
     finally:
         conn.close()

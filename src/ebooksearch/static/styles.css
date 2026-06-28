@@ -309,6 +309,120 @@ main {
 
 .statusbar #errors li { padding: 2px 0; }
 
+.statusbar .link-button {
+    background: none;
+    border: none;
+    color: var(--accent);
+    padding: 6px 0 0;
+    cursor: pointer;
+    font-size: 11px;
+    text-decoration: underline;
+}
+.statusbar .link-button:hover { color: var(--accent-2); }
+
+/* ---------- Modal ---------- */
+
+.modal {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    cursor: pointer;
+}
+
+.modal-panel {
+    position: relative;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    max-width: 760px;
+    width: 100%;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 12px 48px rgba(0, 0, 0, 0.6);
+}
+
+.modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+}
+
+.modal-head h2 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 22px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0 4px;
+}
+.modal-close:hover { color: var(--text); }
+
+.modal-meta {
+    padding: 8px 18px;
+    color: var(--muted);
+    font-size: 11px;
+    border-bottom: 1px solid var(--border);
+}
+
+.errors-list {
+    list-style: none;
+    margin: 0;
+    padding: 8px 18px;
+    overflow-y: auto;
+    flex: 1;
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 11px;
+    line-height: 1.5;
+}
+
+.errors-list li {
+    padding: 4px 0;
+    border-bottom: 1px solid #1a2028;
+    word-break: break-all;
+}
+.errors-list li:last-child { border-bottom: none; }
+.errors-list .err-path { color: var(--text); }
+.errors-list .err-msg { color: var(--err); display: block; margin-top: 2px; }
+
+.modal-loadmore {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: 12px;
+    margin: 10px auto 14px;
+    display: block;
+}
+.modal-loadmore:hover { border-color: var(--accent); color: var(--accent-2); }
+
+@media (max-width: 600px) {
+    .modal { padding: 12px; }
+    .modal-panel { max-height: 92vh; }
+}
+
 /* ---------- Mobile ---------- */
 
 @media (max-width: 600px) {

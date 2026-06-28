@@ -232,3 +232,48 @@ def test_oversize_file_skipped(ebook_env):
         assert any("huge.epub" in e["path"] for e in oversize), snap["errors"]
     finally:
         mgr.stop()
+
+
+def test_full_error_list_persisted_and_queryable(ebook_env, monkeypatch):
+    """All errors (incl. those past MAX_ERRORS) must be persisted per-run
+    and retrievable via search.run_errors() with paging."""
+    from ebooksearch.progress import ProgressState
+    from ebooksearch.search import run_errors, index_runs as q_runs
+
+    # Tiny cap so we exercise the drop-and-persist code path.
+    monkeypatch.setattr(ProgressState, "MAX_ERRORS", 3)
+
+    ebook_dir = ebook_env["ebook_dir"]
+    db_path = ebook_env["db_path"]
+
+    # 7 oversize files → 7 errors, but only 3 fit in the visible list.
+    for i in range(7):
+        (ebook_dir / f"big{i}.epub").write_bytes(b"\x00" * 4000)
+
+    mgr = IndexManager(
+        db_path=db_path, ebook_dir=ebook_dir, workers=2, write_batch=10,
+        max_file_bytes=2000,
+    )
+    mgr.start()
+    try:
+        mgr.request_full_scan("startup")
+        _wait_idle(mgr)
+
+        snap = mgr.progress.snapshot()
+        assert len(snap["errors"]) == 3  # capped
+        assert snap["last_run"]["error_count"] == 7
+        assert snap["last_run"]["dropped_errors_count"] == 4
+
+        run = q_runs(db_path, 10)[0]
+        all_page = run_errors(db_path, run["id"], limit=100, offset=0)
+        assert all_page["total"] == 7
+        assert len(all_page["errors"]) == 7
+
+        page1 = run_errors(db_path, run["id"], limit=3, offset=0)
+        page2 = run_errors(db_path, run["id"], limit=3, offset=3)
+        assert len(page1["errors"]) == 3
+        assert len(page2["errors"]) == 3
+        # No overlap between pages.
+        assert {e["path"] for e in page1["errors"]} & {e["path"] for e in page2["errors"]} == set()
+    finally:
+        mgr.stop()

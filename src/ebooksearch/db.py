@@ -77,6 +77,19 @@ CREATE TABLE IF NOT EXISTS index_runs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_index_runs_started_at ON index_runs(started_at DESC);
+
+-- Full per-run error log. The live `ProgressState.errors` list caps at
+-- MAX_ERRORS for SSE-payload sanity; this table keeps the rest so the UI
+-- can lazy-fetch the full list on demand.
+CREATE TABLE IF NOT EXISTS index_run_errors (
+    id      INTEGER PRIMARY KEY,
+    run_id  INTEGER NOT NULL,
+    path    TEXT NOT NULL,
+    message TEXT NOT NULL,
+    FOREIGN KEY (run_id) REFERENCES index_runs(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_index_run_errors_run_id ON index_run_errors(run_id);
 """
 
 

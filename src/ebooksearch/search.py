@@ -84,6 +84,23 @@ def get_book(db_path: Path, book_id: int) -> dict | None:
         conn.close()
 
 
+def run_errors(db_path: Path, run_id: int, limit: int, offset: int) -> dict:
+    """Paginated list of errors for one indexing run."""
+    conn = dbmod.connect(db_path, read_only=True)
+    try:
+        total = conn.execute(
+            "SELECT count(*) AS n FROM index_run_errors WHERE run_id = ?",
+            (run_id,),
+        ).fetchone()["n"]
+        rows = conn.execute(
+            "SELECT path, message FROM index_run_errors WHERE run_id = ? ORDER BY id LIMIT ? OFFSET ?",
+            (run_id, limit, offset),
+        ).fetchall()
+        return {"run_id": run_id, "total": int(total), "errors": [dict(r) for r in rows]}
+    finally:
+        conn.close()
+
+
 def index_runs(db_path: Path, limit: int) -> list[dict]:
     conn = dbmod.connect(db_path, read_only=True)
     try:

@@ -15,6 +15,13 @@ const els = {
     errorsWrap: $("#errors-wrap"),
     errCount: $("#err-count"),
     errors: $("#errors"),
+    viewAllErrors: $("#view-all-errors"),
+    errorsModal: $("#errors-modal"),
+    errorsModalTitle: $("#errors-modal-title"),
+    errorsModalMeta: $("#errors-modal-meta"),
+    errorsModalList: $("#errors-modal-list"),
+    errorsModalLoadMore: $("#errors-modal-loadmore"),
+    errorsModalLoadMoreWrap: $("#errors-modal-loadmore-wrap"),
 };
 
 const fmtBytes = (n) => {
@@ -239,9 +246,11 @@ function onProgress(snap, terminal) {
     }
 
     const errs = snap.errors || [];
-    els.errorsWrap.classList.toggle("hidden", errs.length === 0);
-    els.errCount.textContent = errs.length;
-    if (errs.length) {
+    const dropped = snap.dropped_errors_count || 0;
+    const totalErrs = errs.length + dropped;
+    els.errorsWrap.classList.toggle("hidden", totalErrs === 0);
+    els.errCount.textContent = dropped > 0 ? `${totalErrs} (${errs.length} shown)` : totalErrs;
+    if (totalErrs) {
         els.errors.innerHTML = errs.map(e => `<li>${esc(e.path)}: ${esc(e.message)}</li>`).join("");
     }
 
@@ -251,6 +260,82 @@ function onProgress(snap, terminal) {
         if (!els.q.value.trim()) runSearch();
     }
 }
+
+// ---------------------------------------------------------------------------
+// Errors modal — fetches the full per-run error list lazily
+// ---------------------------------------------------------------------------
+
+const errorsModalState = {
+    runId: null,
+    offset: 0,
+    pageSize: 500,
+    total: 0,
+};
+
+async function openErrorsModal() {
+    // Resolve the last run id from /api/stats (cheap, always current).
+    const stats = await (await fetch("/api/stats")).json();
+    const lastRun = stats.last_run;
+    if (!lastRun) {
+        alert("No indexing runs yet.");
+        return;
+    }
+    errorsModalState.runId = lastRun.id;
+    errorsModalState.offset = 0;
+    errorsModalState.total = 0;
+    els.errorsModalTitle.textContent = `Errors — ${triggerLabel(lastRun.trigger)} run`;
+    els.errorsModalMeta.textContent = `${lastRun.started_at} · ${lastRun.duration_seconds ?? "?"}s · status ${lastRun.status}`;
+    els.errorsModalList.innerHTML = "<li>Loading…</li>";
+    els.errorsModalLoadMoreWrap.classList.add("hidden");
+    els.errorsModal.classList.remove("hidden");
+    await loadMoreErrors(true);
+}
+
+async function loadMoreErrors(replace = false) {
+    const { runId, offset, pageSize } = errorsModalState;
+    const r = await fetch(`/api/index/runs/${runId}/errors?limit=${pageSize}&offset=${offset}`);
+    if (!r.ok) {
+        els.errorsModalList.innerHTML = `<li>Failed to load (HTTP ${r.status})</li>`;
+        return;
+    }
+    const data = await r.json();
+    errorsModalState.total = data.total;
+    errorsModalState.offset += data.errors.length;
+
+    const rows = data.errors.map(e => `
+        <li>
+            <span class="err-path">${esc(e.path)}</span>
+            <span class="err-msg">${esc(e.message)}</span>
+        </li>
+    `).join("");
+
+    if (replace) {
+        if (!data.errors.length) {
+            els.errorsModalList.innerHTML = `<li>No errors recorded for this run.</li>`;
+        } else {
+            els.errorsModalList.innerHTML = rows;
+        }
+    } else {
+        els.errorsModalList.insertAdjacentHTML("beforeend", rows);
+    }
+
+    els.errorsModalMeta.textContent = `${errorsModalState.offset} of ${data.total} shown`;
+    const hasMore = errorsModalState.offset < data.total;
+    els.errorsModalLoadMoreWrap.classList.toggle("hidden", !hasMore);
+}
+
+function closeErrorsModal() {
+    els.errorsModal.classList.add("hidden");
+}
+
+els.viewAllErrors.addEventListener("click", openErrorsModal);
+els.errorsModalLoadMore.addEventListener("click", () => loadMoreErrors(false));
+els.errorsModal.addEventListener("click", (e) => {
+    if (e.target.dataset.close !== undefined) closeErrorsModal();
+});
+document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !els.errorsModal.classList.contains("hidden")) closeErrorsModal();
+});
 
 // ---------------------------------------------------------------------------
 // Boot
