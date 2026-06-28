@@ -14,6 +14,15 @@ from .indexer import IndexManager
 
 logger = logging.getLogger(__name__)
 
+# Event types that imply real content change. We deliberately ignore
+# ``opened`` / ``closed`` / ``closed_no_write``: on Linux/inotify those fire
+# whenever *any* process opens or closes a file under the watched tree —
+# including the indexer itself reading files to parse them. Acting on them
+# causes a self-sustaining feedback loop for any file we keep re-parsing
+# (e.g. files that fail validation and never get a DB fingerprint to
+# short-circuit against).
+_ACTIONABLE_EVENT_TYPES = frozenset({"created", "modified", "moved", "deleted"})
+
 
 class _DebouncedHandler(FileSystemEventHandler):
     """Accumulate affected paths and flush after a quiet period."""
@@ -27,6 +36,8 @@ class _DebouncedHandler(FileSystemEventHandler):
 
     def _interesting(self, event: FileSystemEvent) -> list[Path]:
         if event.is_directory:
+            return []
+        if event.event_type not in _ACTIONABLE_EVENT_TYPES:
             return []
         paths: list[Path] = []
         # For move events we want both src and dest considered.
