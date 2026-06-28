@@ -123,13 +123,29 @@ uv run pytest
 # docker (local)
 make build-local && make run
 
-# docker (multi-arch + push to private registry)
-make build           # builds linux/amd64 + linux/arm64, pushes :vX.Y.Z and :latest
+# docker (multi-arch + push)
+make build           # → ghcr.io/baudcode/ebooksearch:vX.Y.Z + :latest
+make local           # same image, pushed to tower.local:5000 (LAN registry)
 make version         # prints current version from pyproject.toml
 ```
 
 The Makefile reads the version from `pyproject.toml`. Bump that file to cut
 a release; `make build` will tag accordingly.
+
+## Releasing
+
+CI/CD lives in `.github/workflows/`:
+
+- `ci.yml` — runs `pytest` on every push to `main` and on every PR.
+- `docker.yml` — on every push to `main` and on every `v*` tag, builds a
+  multi-arch image and pushes to `ghcr.io/baudcode/ebooksearch`. Uses
+  `GITHUB_TOKEN` for auth (no PAT needed). Cached via the GitHub Actions
+  cache backend.
+
+To cut a release:
+1. Bump `version` in `pyproject.toml` and `src/ebooksearch/__init__.py`.
+2. Commit, tag `vX.Y.Z`, push tag → workflow tags the image `:X.Y.Z`,
+   `:vX.Y.Z`, and `:latest`.
 
 ## Code style / conventions
 

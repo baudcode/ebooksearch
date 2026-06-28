@@ -1,4 +1,4 @@
-REGISTRY  ?= tower.local:5000
+REGISTRY  ?= ghcr.io/baudcode
 IMAGE     ?= ebooksearch
 # Read the canonical version straight from pyproject.toml.
 VERSION   := $(shell awk -F'"' '/^version *= */ {print $$2; exit}' pyproject.toml)
@@ -8,16 +8,15 @@ REF       := $(REGISTRY)/$(IMAGE):$(TAG)
 REF_LATEST := $(REGISTRY)/$(IMAGE):latest
 BUILDER   := ebooksearch-builder
 
-.PHONY: all build push release run clean builder version
+.PHONY: all build push release local build-local run clean builder version
 
 all: build
 
 version:
 	@echo $(VERSION)
 
-# Multi-arch build + push in one step (buildx requires this — the resulting
-# manifest list cannot be loaded into the local Docker daemon directly).
-# Pushes both `:vX.Y.Z` (or whatever TAG is) and `:latest` from the same build.
+# Multi-arch build + push to the configured REGISTRY (default: ghcr.io).
+# Pushes both `:vX.Y.Z` (or whatever TAG is) and `:latest` from one build.
 build: builder
 	docker buildx build \
 		--builder $(BUILDER) \
@@ -27,14 +26,16 @@ build: builder
 		--push \
 		.
 
-# `make push` is a synonym for `make build` (buildx pushes as part of build).
+# `make push` and `make release` are synonyms for `make build`.
 push: build
-
-# `make release` is the conventional name for the same thing.
 release: build
 
-# Local single-arch build for development — loads into the local daemon so
-# `make run` works.
+# Push to the LAN registry instead of ghcr.io. Useful for testing on a NAS
+# without going through GitHub.
+local:
+	$(MAKE) build REGISTRY=tower.local:5000
+
+# Single-arch local-daemon build for `make run`.
 build-local:
 	docker build -t $(REF) .
 

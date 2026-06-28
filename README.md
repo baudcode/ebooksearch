@@ -1,13 +1,14 @@
 # ebooksearch
 
+[![CI](https://github.com/baudcode/ebooksearch/actions/workflows/ci.yml/badge.svg)](https://github.com/baudcode/ebooksearch/actions/workflows/ci.yml)
+[![Docker](https://github.com/baudcode/ebooksearch/actions/workflows/docker.yml/badge.svg)](https://github.com/baudcode/ebooksearch/actions/workflows/docker.yml)
+
 A local ebook search server. Point it at a folder of `.epub` / `.pdf` files;
 it indexes metadata into SQLite FTS5 and serves a single-page web UI for
 search, browse, preview, and download. The index auto-updates when the folder
 changes.
 
 Designed to run as a single container on a NAS, pointed at a mounted library.
-
-![screenshot placeholder — search UI with results accordion + sticky status footer]
 
 ## Features
 
@@ -43,12 +44,10 @@ Open <http://127.0.0.1:8000>.
 
 ## Docker
 
-```bash
-# build + run locally
-make build-local
-make run
+Prebuilt multi-arch images (`linux/amd64` + `linux/arm64`) are published to
+GitHub Container Registry on every push to `main` and every tag:
 
-# or pull from a registry that mirrors this image
+```bash
 docker run -d \
   --name ebooksearch \
   -p 8000:8000 \
@@ -56,22 +55,38 @@ docker run -d \
   -v /path/to/persistent-state:/data \
   --memory=1g --memory-swap=1g \
   -e MAX_FILE_BYTES=5242880 \
-  ghcr.io/your-org/ebooksearch:latest
+  ghcr.io/baudcode/ebooksearch:latest
+```
+
+Or pin to a specific version, e.g. `ghcr.io/baudcode/ebooksearch:v0.2.1`.
+
+```bash
+# build + run locally (single-arch, loads into local docker daemon)
+make build-local
+make run
 ```
 
 `/data` is the volume for the SQLite database. `/data/books` is where your
 library mounts.
 
-### Multi-arch build (linux/amd64 + linux/arm64)
+### Building yourself
+
+Tags follow the version in `pyproject.toml` (`make version` prints it).
 
 ```bash
-# tags follow the version in pyproject.toml
-make build REGISTRY=your-registry.example.com TAG=v0.2.1
-make version  # prints the version that would be built
+# multi-arch build + push to ghcr.io (the default)
+make build
+
+# push to a private LAN registry instead (defaults to tower.local:5000)
+make local
+
+# or override registry explicitly
+make build REGISTRY=registry.example.com/your-org TAG=v0.2.1
 ```
 
-The `Makefile` uses `docker buildx` with both platforms by default. For
-plain-HTTP registries on a LAN, edit `buildkitd.toml` to add yours.
+The `Makefile` uses `docker buildx` with both `linux/amd64` and `linux/arm64`
+platforms by default. For plain-HTTP registries on a LAN, edit
+`buildkitd.toml` to add yours.
 
 ## Configuration
 
