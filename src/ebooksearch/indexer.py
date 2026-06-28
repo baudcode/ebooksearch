@@ -256,17 +256,26 @@ class IndexManager:
         seen_paths: set[str] = set()
 
         to_parse: list[Path] = []
+        # Throttled broadcast inside the fingerprint loop. On a stable library
+        # the vast majority of files take the skip branch — without periodic
+        # emits, the progress bar sits at 0% for the entire scan and only
+        # jumps to 100% at the terminal event.
+        last_emit = 0.0
         for p, stat in discovered:
             sp = str(p)
             seen_paths.add(sp)
             if self.max_file_bytes and stat.st_size > self.max_file_bytes:
                 self.progress.note_error(sp, f"skipped: {stat.st_size} bytes exceeds limit of {self.max_file_bytes}")
-                continue
-            prev = existing.get(sp)
-            if prev and prev[0] == stat.st_mtime and prev[1] == stat.st_size:
-                self.progress.note_processed(current_file=sp, outcome="skipped")
-                continue
-            to_parse.append(p)
+            else:
+                prev = existing.get(sp)
+                if prev and prev[0] == stat.st_mtime and prev[1] == stat.st_size:
+                    self.progress.note_processed(current_file=sp, outcome="skipped")
+                else:
+                    to_parse.append(p)
+            now = time.monotonic()
+            if now - last_emit >= 0.25:
+                self._broadcast()
+                last_emit = now
 
         self._parse_and_write(writer, to_parse)
 
